@@ -41,3 +41,22 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+[Oo]bj/
+[Bb]in/
+App_Data
+Packages
+Logs
+PrecompiledWeb/
+
+_ReSharper.*
+*crunch*
+
+*.user
+*.suo
+*.cache
+*.dotCover
+*.dotsettings
+!*.proj
+*.vspscc
+*.vssscc
