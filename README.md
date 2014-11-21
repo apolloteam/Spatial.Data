@@ -1,2 +1,2 @@
-Spatialite.Data
+Spatial.Data
 ===============
