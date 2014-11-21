@@ -6,8 +6,6 @@
     using System.Data;
     using System.Data.SqlClient;
     using System.Globalization;
-    using System.IO;
-    using System.Reflection;
 
     /// <summary>The country info field.</summary>
     internal enum CountryInfoField
@@ -76,9 +74,21 @@
         #region Constants
 
         /// <summary>The query sql.</summary>
-        private const string QuerySql = @"SELECT c.* FROM dbo.CountryInfo c (NOLOCK)
-                                        INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
-                                        WHERE t.GeoData.STContains ( geometry::STGeomFromText( 'POINT( {1} {0} )', 4326 ) ) = 1;";
+        private const string QuerySqlFirst =
+            @"DECLARE @p AS GEOMETRY = GEOMETRY::STGeomFromText('POINT( {1} {0} )', 4326)
+                                          SELECT c.* 
+                                          FROM dbo.CountryInfo c (NOLOCK)
+                                          INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
+                                          WHERE t.GeoData.STContains ( @p ) = 1";
+
+        /// <summary>The query sql other.</summary>
+        private const string QuerySqlOther =
+            @"DECLARE @p AS GEOMETRY = GEOMETRY::STGeomFromText('POINT( {1} {0} )', 4326)
+                                          SELECT c.* 
+                                          FROM dbo.CountryInfo c (NOLOCK)
+                                          INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
+                                          WHERE t.GeoData.STDistance( @p ) < 1
+                                          ORDER BY t.GeoData.STDistance( @p )";
 
         #endregion
 
@@ -89,13 +99,13 @@
 
         /// <summary>The sync lock.</summary>
         private readonly object syncLock = new object();
-        
+
         /// <summary>The map country info.</summary>
         private IDictionary<string, CountryInfo> mapCountryInfo;
 
         #endregion
 
-        #region Constructors
+        #region Constructors and Destructors
 
         /// <summary>Initializes a new instance of the <see cref="CountryInfoProvider" /> class.</summary>
         public CountryInfoProvider()
@@ -153,11 +163,11 @@
 
         #endregion
 
-        #region Methods
+        #region Public Methods and Operators
 
         /// <summary>The get country.</summary>
         /// <param name="countryCode">The country code.</param>
-        /// <returns>The <see cref="CountryInfo"/>.</returns>
+        /// <returns>The <see cref="RunQuery"/>.</returns>
         public CountryInfo GetCountry(string countryCode)
         {
             CountryInfo country;
@@ -168,7 +178,7 @@
         /// <summary>The get country.</summary>
         /// <param name="latitude">The latitude.</param>
         /// <param name="longitude">The longitude.</param>
-        /// <returns>The <see cref="CountryInfo"/>.</returns>
+        /// <returns>The <see cref="RunQuery"/>.</returns>
         public CountryInfo GetCountry(decimal latitude, decimal longitude)
         {
             CountryInfo country = null;
@@ -177,14 +187,12 @@
                 conn.Open();
                 using (IDbCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = string.Format(CultureInfo.InvariantCulture, QuerySql, latitude, longitude);
-                    cmd.Prepare();
-                    using (IDataReader dr = cmd.ExecuteReader())
+                    string sql = string.Format(CultureInfo.InvariantCulture, QuerySqlFirst, latitude, longitude);
+                    country = this.RunQuery(cmd, sql);
+                    if (country == null)
                     {
-                        if (dr.Read())
-                        {
-                            country = this.FillEntity(dr);
-                        }
+                        sql = string.Format(CultureInfo.InvariantCulture, QuerySqlOther, latitude, longitude);
+                        country = this.RunQuery(cmd, sql);
                     }
                 }
             }
@@ -198,7 +206,7 @@
 
         /// <summary>The fill entity.</summary>
         /// <param name="dr">The dr.</param>
-        /// <returns>The <see cref="CountryInfo"/>.</returns>
+        /// <returns>The <see cref="RunQuery"/>.</returns>
         private CountryInfo FillEntity(IDataReader dr)
         {
             object valueAux;
@@ -228,6 +236,26 @@
             }
 
             country.EquivalentFipsCode = dr.GetString((int)CountryInfoField.EquivalentFipsCode);
+            return country;
+        }
+
+        /// <summary>The run query.</summary>
+        /// <param name="cmd">The cmd.</param>
+        /// <param name="sql">The sql.</param>
+        /// <returns>The <see cref="CountryInfo"/>.</returns>
+        private CountryInfo RunQuery(IDbCommand cmd, string sql)
+        {
+            CountryInfo country = null;
+            cmd.CommandText = sql;
+            cmd.Prepare();
+            using (IDataReader dr = cmd.ExecuteReader())
+            {
+                if (dr.Read())
+                {
+                    country = this.FillEntity(dr);
+                }
+            }
+
             return country;
         }
 
