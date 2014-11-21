@@ -1,6 +1,5 @@
 ﻿namespace Spatial.Data.TimeZones
 {
-    using System;
     using System.Data;
     using System.Data.SqlClient;
     using System.Diagnostics;
@@ -36,8 +35,8 @@
     {
         #region Constants
 
-        /// <summary>The query sql.</summary>
-        private const string QuerySql = @"SELECT 
+        /// <summary>Query que se utiliza para buscar el punto dentro de un shape.</summary>
+        private const string QuerySqlFirst = @"SELECT 
                                             CountryCode, 
                                             TimeZoneId, 
                                             TimeZoneName, 
@@ -47,6 +46,20 @@
                                             RawOffset 
                                         FROM dbo.TimeZones t (NOLOCK)
                                         WHERE t.GeoData.STContains ( geometry::STGeomFromText( 'POINT( {1} {0} )', 4326 ) ) = 1;";
+
+        /// <summary>Query que se utiliza para buscar el punto cercano a un shape.</summary>
+        private const string QuerySqlOthers = @"DECLARE @p AS GEOMETRY = GEOMETRY::STGeomFromText('POINT( {1} {0} )', 4326)
+                                                SELECT 
+                                                    CountryCode, 
+                                                    TimeZoneId, 
+                                                    TimeZoneName, 
+                                                    TimeZoneDaylightName, 
+                                                    GmtOffset, 
+                                                    DstOffset, 
+                                                    RawOffset 
+                                                FROM dbo.TimeZones t (NOLOCK)
+                                                WHERE t.GeoData.STDistance( @p ) < 1
+                                                ORDER BY t.GeoData.STDistance( @p )";
 
         #endregion
 
@@ -88,24 +101,14 @@
                 conn.Open();
                 using (IDbCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = string.Format(CultureInfo.InvariantCulture, QuerySql, latitude, longitude);
-                    cmd.Prepare();
-                    using (IDataReader dr = cmd.ExecuteReader())
+                    // Ejecuta la consulta buscando que el punto este contenido en un shape.
+                    string sql = string.Format(CultureInfo.InvariantCulture, QuerySqlFirst, latitude, longitude);
+                    tz = cmd.RunQuery(sql);
+                    if (tz == null)
                     {
-                        if (dr.Read())
-                        {
-                            tz = new TimeZoneInfo();
-                            tz.CountryCode = dr.GetString((int)TimeZonesFields.CountryCode);
-                            tz.TimeZoneId = dr.GetString((int)TimeZonesFields.TimeZoneId);
-                            tz.TimeZoneName = dr.GetString((int)TimeZonesFields.TimeZoneName);
-                            tz.TimeZoneDaylightName = dr.GetString((int)TimeZonesFields.TimeZoneDaylightName);
-                            object aux = dr.GetValue((int)TimeZonesFields.GmtOffset);
-                            tz.GmtOffset = aux == DBNull.Value ? null : (decimal?)Convert.ToDecimal(aux);
-                            aux = dr.GetValue((int)TimeZonesFields.DstOffset);
-                            tz.DstOffset = aux == DBNull.Value ? null : (decimal?)Convert.ToDecimal(aux);
-                            aux = dr.GetValue((int)TimeZonesFields.RawOffset);
-                            tz.RawOffset = aux == DBNull.Value ? null : (decimal?)Convert.ToDecimal(aux);
-                        }
+                        // Ejecuta la consulta buscando que el punto este cerca en un shape.
+                        sql = string.Format(CultureInfo.InvariantCulture, QuerySqlOthers, latitude, longitude);
+                        tz = cmd.RunQuery(sql);
                     }
                 }
             }

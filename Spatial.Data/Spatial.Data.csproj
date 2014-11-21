@@ -50,6 +50,7 @@
     <Compile Include="Countries\CountryInfoProvider.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DataConfiguration.cs" />
+    <Compile Include="TimeZones\DbCommandExtension.cs" />
     <Compile Include="TimeZones\TimeZoneInfo.cs" />
     <Compile Include="TimeZones\TimeZonesProvider.cs" />
   </ItemGroup>
