@@ -37,15 +37,16 @@
 
         /// <summary>Query que se utiliza para buscar el punto dentro de un shape.</summary>
         private const string QuerySqlFirst = @"SELECT 
-                                            CountryCode, 
-                                            TimeZoneId, 
-                                            TimeZoneName, 
-                                            TimeZoneDaylightName, 
-                                            GmtOffset, 
-                                            DstOffset, 
-                                            RawOffset 
-                                        FROM dbo.TimeZones t (NOLOCK)
-                                        WHERE t.GeoData.STContains ( geometry::STGeomFromText( 'POINT( {1} {0} )', 4326 ) ) = 1;";
+                                                CountryCode, 
+                                                TimeZoneId, 
+                                                TimeZoneName, 
+                                                TimeZoneDaylightName, 
+                                                GmtOffset, 
+                                                DstOffset, 
+                                                RawOffset 
+                                            FROM dbo.TimeZones t (NOLOCK)
+                                            WHERE t.GeoData.STContains ( geometry::STGeomFromText( 'POINT( {1} {0} )', 4326 ) ) = 1
+                                            ORDER BY t.priority;";
 
         /// <summary>Query que se utiliza para buscar el punto cercano a un shape.</summary>
         private const string QuerySqlOthers = @"DECLARE @p AS GEOMETRY = GEOMETRY::STGeomFromText('POINT( {1} {0} )', 4326)
@@ -59,7 +60,7 @@
                                                     RawOffset 
                                                 FROM dbo.TimeZones t (NOLOCK)
                                                 WHERE t.GeoData.STDistance( @p ) < 1
-                                                ORDER BY t.GeoData.STDistance( @p )";
+                                                ORDER BY t.priority, t.GeoData.STDistance( @p )";
 
         #endregion
 

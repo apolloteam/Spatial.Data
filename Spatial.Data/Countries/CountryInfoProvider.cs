@@ -76,10 +76,11 @@
         /// <summary>The query sql.</summary>
         private const string QuerySqlFirst =
             @"DECLARE @p AS GEOMETRY = GEOMETRY::STGeomFromText('POINT( {1} {0} )', 4326)
-                                          SELECT c.* 
-                                          FROM dbo.CountryInfo c (NOLOCK)
-                                          INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
-                                          WHERE t.GeoData.STContains ( @p ) = 1";
+                SELECT c.* 
+                FROM dbo.CountryInfo c (NOLOCK)
+                INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
+                WHERE t.GeoData.STContains ( @p ) = 1
+                ORDER BY t.priority";
 
         /// <summary>The query sql other.</summary>
         private const string QuerySqlOther =
@@ -88,7 +89,7 @@
                                           FROM dbo.CountryInfo c (NOLOCK)
                                           INNER JOIN dbo.TimeZones t (NOLOCK) ON c.ISO = t.CountryCode 
                                           WHERE t.GeoData.STDistance( @p ) < 1
-                                          ORDER BY t.GeoData.STDistance( @p )";
+                                          ORDER BY t.priority, t.GeoData.STDistance( @p )";
 
         #endregion
 
@@ -105,7 +106,7 @@
 
         #endregion
 
-        #region Constructors and Destructors
+        #region Constructors
 
         /// <summary>Initializes a new instance of the <see cref="CountryInfoProvider" /> class.</summary>
         public CountryInfoProvider()
@@ -163,7 +164,7 @@
 
         #endregion
 
-        #region Public Methods and Operators
+        #region Methods
 
         /// <summary>The get country.</summary>
         /// <param name="countryCode">The country code.</param>
@@ -199,11 +200,7 @@
 
             return country;
         }
-
-        #endregion
-
-        #region Methods
-
+        
         /// <summary>The fill entity.</summary>
         /// <param name="dr">The dr.</param>
         /// <returns>The <see cref="RunQuery"/>.</returns>
